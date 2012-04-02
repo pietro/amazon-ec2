@@ -474,6 +474,11 @@ module AWS
       # @option options [optional, String] :db_instance_class specifies the class of the compute and memory of the EC2 instance, Options : db.m1.small | db.m1.large | db.m1.xlarge | db.m2.2xlarge | db.m2.4xlarge | db.cc1.4xlarge
       # @option options [optional, Integer] :port is the port which the db can accept connections on. Constraints: Value must be 1115-65535
       # @option options [optional, String] :availability_zone is the EC2 zone which the db instance will be created
+      # @option options [optional, Boolean] :auto_minor_version_upgrade allows minor version upgrades to be applied automatically to the DB Instance during the maintenance window.
+      # @option options [optional, String] :db_name specifies the database name for the restored DB Instance. Conditional, can only be specified for the Oracle engine.
+      # @option options [optional, String] :engine the name of the database engine to use for the new DB Instance.
+      # @option options [optional, String] :license_model the license model for the new DB Instance.
+      # @option options [optional, String] :multi_az specifies if the new DB Instance is a Multi-AZ deployment.
       #
       def restore_db_instance_to_point_in_time( options = {} )
         raise ArgumentError, "No :source_db_instance_identifier provided" if options.does_not_have?(:source_db_instance_identifier)
@@ -489,10 +494,8 @@ module AWS
           params['UseLatestRestorableTime'] = case options[:use_latest_restorable_time]
                                               when 'true', 'false'
                                                 options[:use_latest_restorable_time]
-                                              when true
-                                                'true'
-                                              when false
-                                                'false'
+                                              when true, false
+                                                options[:use_latest_restorable_time].to_s
                                               else
                                                 raise ArgumentError, "Invalid value provided for :use_latest_restorable_time.  Expected boolean."
                                               end
@@ -503,6 +506,27 @@ module AWS
         params['DBInstanceClass'] = options[:db_instance_class] if options.has?(:db_instance_class)
         params['Port'] = options[:port].to_s if options.has?(:port)
         params['AvailabilityZone'] = options[:availability_zone] if options.has?(:availability_zone)
+
+        if options.has?(:auto_minor_version_upgrade)
+          params['AutoMinorVersionUpgrade'] = case options[:auto_minor_version_upgrade]
+                                              when 'true', 'false'
+                                                options[:auto_minor_version_upgrade]
+                                              when true, false
+                                                options[:auto_minor_version_upgrade].to_s
+                                                raise ArgumentError, "Invalid value provided for :auto_minor_version_upgrade. Expected boolean."
+                                              end
+        end
+
+        if options.has?(:db_name) && options.has?(:engine) && options[:engine].match(/mysql/i)
+          raise ArgumentError, "You can not use :db_name with the Mysql engine."
+        elsif options.has?(:db_name)
+          params['DBName'] = options[:db_nme]
+        end
+
+        params['DBSubnetGroupName'] = options[:db_subnet_group_name] if options.has?(:db_subnet_group_name)
+        params['Engine'] = options[:engine] if options.has?(:engine)
+        params['LicenseModel'] = options[:license_model] if options.has?(:license_model)
+        params['MultiAZ'] = options[:multi_az] if options.has?(:multi_az)
 
         return response_generator(:action => "RestoreDBInstanceToPointInTime", :params => params)
       end
